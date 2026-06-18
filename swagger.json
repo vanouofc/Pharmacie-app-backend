@@ -1,0 +1,584 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PharmOnline - API Authentification",
+    "description": "Documentation de l'API d'authentification PharmOnline basée sur Better Auth. Inclut la gestion des utilisateurs, la connexion email/password, la vérification email, l'OTP et la réinitialisation du mot de passe.",
+    "version": "1.2.0",
+    "contact": {
+      "name": "Équipe PharmOnline"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Serveur de développement"
+    }
+  ],
+  "tags": [
+    { "name": "Inscription & Connexion", "description": "Créer un compte et se connecter" },
+    { "name": "Vérification Email", "description": "Vérifier et confirmer l'adresse email" },
+    { "name": "OTP", "description": "Connexion et vérification par code à usage unique" },
+    { "name": "Mot de passe", "description": "Réinitialisation du mot de passe" },
+    { "name": "Session", "description": "Gestion de la session active" },
+    { "name": "Utilisateurs", "description": "Gestion des utilisateurs (CRUD, soft delete, restauration)" },
+    { "name": "Admin", "description": "Routes réservées aux administrateurs" }
+  ],
+  "paths": {
+    "/api/auth/sign-up/email": {
+      "post": {
+        "tags": ["Inscription & Connexion"],
+        "summary": "Inscription par email",
+        "description": "Crée un nouveau compte utilisateur. Un email de vérification est envoyé automatiquement après l'inscription.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "name", "phone"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "password": { "type": "string", "minLength": 8, "example": "motdepasse123" },
+                  "name": { "type": "string", "example": "Jean Dupont" },
+                  "phone": { "type": "string", "example": "699000000" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compte créé avec succès. Email de vérification envoyé.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserSession" }
+              }
+            }
+          },
+          "422": { "description": "Données invalides (email déjà utilisé, mot de passe trop court...)" }
+        }
+      }
+    },
+    "/api/auth/sign-in/email": {
+      "post": {
+        "tags": ["Inscription & Connexion"],
+        "summary": "Connexion par email et mot de passe",
+        "description": "Connecte un utilisateur avec son email et son mot de passe. Retourne un cookie de session et un token court dans le body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "password": { "type": "string", "example": "motdepasse123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connexion réussie. Cookie de session défini.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserSession" }
+              }
+            }
+          },
+          "403": { "description": "Email non vérifié." },
+          "401": { "description": "Email ou mot de passe incorrect." }
+        }
+      }
+    },
+    "/api/auth/sign-out": {
+      "post": {
+        "tags": ["Session"],
+        "summary": "Déconnexion",
+        "description": "Déconnecte l'utilisateur et révoque la session active. Nécessite le cookie de session ou le header Authorization. Le header Origin est obligatoire.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "http://localhost:3000"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Déconnexion réussie." },
+          "401": { "description": "Non authentifié." }
+        }
+      }
+    },
+    "/api/auth/get-session": {
+      "get": {
+        "tags": ["Session"],
+        "summary": "Récupérer la session active",
+        "description": "Retourne les informations de l'utilisateur connecté et sa session. Retourne null si aucune session active.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Session active ou null.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserSession" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/ok": {
+      "get": {
+        "tags": ["Session"],
+        "summary": "Vérifier que le serveur Better Auth tourne",
+        "description": "Route de santé de Better Auth.",
+        "responses": {
+          "200": {
+            "description": "Serveur opérationnel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/send-verification-email": {
+      "post": {
+        "tags": ["Vérification Email"],
+        "summary": "Renvoyer l'email de vérification",
+        "description": "Renvoie un email de vérification. Utile si le lien précédent a expiré (valide 1 heure).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "callbackURL"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "callbackURL": { "type": "string", "example": "http://localhost:3000/dashboard" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email de vérification envoyé." },
+          "400": { "description": "Email introuvable ou déjà vérifié." }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "get": {
+        "tags": ["Vérification Email"],
+        "summary": "Vérifier l'email via le lien reçu",
+        "description": "Appelée automatiquement quand l'utilisateur clique sur le lien dans l'email. Valable 1 heure.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "SbaWqXNB99kbFITCmNedMHr2"
+          },
+          {
+            "name": "callbackURL",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "http://localhost:3000/dashboard"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Email vérifié. L'utilisateur est connecté automatiquement." },
+          "400": { "description": "Token invalide ou expiré." }
+        }
+      }
+    },
+    "/api/auth/email-otp/send-verification-otp": {
+      "post": {
+        "tags": ["OTP"],
+        "summary": "Envoyer un code OTP",
+        "description": "Envoie un code OTP à 6 chiffres par email. Valable 10 minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "type"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "type": {
+                    "type": "string",
+                    "enum": ["sign-in", "email-verification", "forget-password"],
+                    "example": "sign-in"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Code OTP envoyé par email." },
+          "400": { "description": "Email introuvable." }
+        }
+      }
+    },
+    "/api/auth/email-otp/sign-in": {
+      "post": {
+        "tags": ["OTP"],
+        "summary": "Connexion via OTP",
+        "description": "Connecte l'utilisateur avec son email et le code OTP reçu. Le code expire après 10 minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "otp"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "otp": { "type": "string", "minLength": 6, "maxLength": 6, "example": "123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connexion réussie.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserSession" }
+              }
+            }
+          },
+          "400": { "description": "Code OTP invalide ou expiré." }
+        }
+      }
+    },
+    "/api/auth/request-password-reset": {
+      "post": {
+        "tags": ["Mot de passe"],
+        "summary": "Demander la réinitialisation du mot de passe",
+        "description": "Envoie un email contenant un lien de réinitialisation valable 10 minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "redirectTo"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+                  "redirectTo": { "type": "string", "example": "http://localhost:3000/reset-password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email de réinitialisation envoyé." },
+          "400": { "description": "Email introuvable." }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Mot de passe"],
+        "summary": "Réinitialiser le mot de passe",
+        "description": "Réinitialise le mot de passe avec le token reçu par email. Toutes les sessions actives sont révoquées.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["newPassword", "token"],
+                "properties": {
+                  "newPassword": { "type": "string", "minLength": 8, "example": "nouveaumotdepasse123" },
+                  "token": { "type": "string", "example": "SbaWqXNB99kbFITCmNedMHr2" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Mot de passe réinitialisé. Toutes les sessions révoquées." },
+          "400": { "description": "Token invalide ou expiré." }
+        }
+      }
+    },
+    "/api/user": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Lister tous les utilisateurs actifs",
+        "description": "Retourne la liste de tous les utilisateurs avec isActive: true. Réservé aux Admins. Nécessite un email vérifié.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Liste des utilisateurs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Utilisateur" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Non authentifié." },
+          "403": { "description": "Accès refusé. Rôle requis : Admin." }
+        }
+      }
+    },
+    "/api/user/{id}": {
+      "get": {
+        "tags": ["Utilisateurs"],
+        "summary": "Récupérer un utilisateur par ID",
+        "description": "Retourne les informations d'un utilisateur. Nécessite d'être connecté (email non vérifié accepté).",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "6a27d3cd759a4a690267ef5e"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Utilisateur trouvé.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Utilisateur" }
+              }
+            }
+          },
+          "401": { "description": "Non authentifié." },
+          "404": { "description": "Utilisateur introuvable." }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Soft delete d'un utilisateur",
+        "description": "Désactive le compte utilisateur sans le supprimer de la base (isActive: false, deletedAt: now). Réservé aux Admins.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "6a27d3cd759a4a690267ef5e"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Utilisateur supprimé avec succès." },
+          "400": { "description": "Utilisateur déjà supprimé." },
+          "401": { "description": "Non authentifié." },
+          "403": { "description": "Accès refusé. Rôle requis : Admin." },
+          "404": { "description": "Utilisateur introuvable." }
+        }
+      }
+    },
+    "/api/user/update/{id}": {
+      "patch": {
+        "tags": ["Utilisateurs"],
+        "summary": "Mettre à jour son profil",
+        "description": "Permet à un utilisateur connecté de modifier ses propres informations (nom, phone, photo). Un utilisateur ne peut modifier que son propre profil.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "6a27d3cd759a4a690267ef5e"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nom": { "type": "string", "example": "Jean Dupont" },
+                  "phone": { "type": "string", "example": "699000000" },
+                  "photo": { "type": "string", "example": "https://example.com/photo.jpg" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profil mis à jour avec succès.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Utilisateur mis à jour avec succès." },
+                    "data": { "$ref": "#/components/schemas/Utilisateur" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Aucun champ valide à mettre à jour." },
+          "401": { "description": "Non authentifié." },
+          "404": { "description": "Utilisateur introuvable." }
+        }
+      }
+    },
+    "/api/user/role/{id}": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Modifier le rôle d'un utilisateur",
+        "description": "Permet à un Admin de modifier le rôle d'un utilisateur. Valeurs acceptées : Client, Pharmacien, Admin. Nécessite un email vérifié.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "6a27d3cd759a4a690267ef5e"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": ["Client", "Pharmacien", "Admin"],
+                    "example": "Pharmacien"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rôle mis à jour avec succès.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Rôle mis à jour : Pharmacien." },
+                    "data": { "$ref": "#/components/schemas/Utilisateur" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Rôle invalide." },
+          "401": { "description": "Non authentifié." },
+          "403": { "description": "Accès refusé. Rôle requis : Admin." },
+          "404": { "description": "Utilisateur introuvable." }
+        }
+      }
+    },
+    "/api/user/restore/{id}": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Restaurer un utilisateur supprimé",
+        "description": "Réactive un compte utilisateur désactivé (isActive: true, deletedAt: null, restoredAt: now). Réservé aux Admins.",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "6a27d3cd759a4a690267ef5e"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Utilisateur restauré avec succès." },
+          "400": { "description": "Utilisateur déjà actif." },
+          "401": { "description": "Non authentifié." },
+          "403": { "description": "Accès refusé. Rôle requis : Admin." },
+          "404": { "description": "Utilisateur introuvable." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "Cookie de session retourné après connexion."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token court retourné dans le body après connexion (champ token)."
+      }
+    },
+    "schemas": {
+      "Utilisateur": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "6a27d3cd759a4a690267ef5e" },
+          "nom": { "type": "string", "example": "Jean Dupont" },
+          "email": { "type": "string", "format": "email", "example": "jean.dupont@example.com" },
+          "role": { "type": "string", "enum": ["Client", "Pharmacien", "Admin"], "example": "Client" },
+          "phone": { "type": "string", "example": "699000000" },
+          "photo": { "type": "string", "nullable": true, "example": null },
+          "isActive": { "type": "boolean", "example": true },
+          "emailVerified": { "type": "boolean", "example": false },
+          "deletedAt": { "type": "string", "format": "date-time", "nullable": true, "example": null },
+          "restoredAt": { "type": "string", "format": "date-time", "nullable": true, "example": null },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserSession": {
+        "type": "object",
+        "properties": {
+          "redirect": { "type": "boolean", "example": false },
+          "token": { "type": "string", "example": "gmV6maEfKBfXEGEE0adlgRrGfoL2kdoo" },
+          "user": { "$ref": "#/components/schemas/Utilisateur" },
+          "session": { "$ref": "#/components/schemas/Session" }
+        }
+      }
+    }
+  }
+}
