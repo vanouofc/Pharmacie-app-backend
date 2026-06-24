@@ -13,7 +13,7 @@ medicamentRouter.get('/:id', requireSession, getMedicament);
 
 // Routes Admin/Pharmacien
 medicamentRouter.post('/', verifiedEmail, requireRole('pharmacien', 'admin'), createMedicament);
-medicamentRouter.patch('/alt/:id', verifiedEmail, requireRole('pharmacien', 'Admin'), updateAlternatives);
+medicamentRouter.patch('/alt/:id', verifiedEmail, requireRole('pharmacien', 'admin'), updateAlternatives);
 medicamentRouter.patch('/:id', verifiedEmail, requireRole('pharmacien', 'admin'), updateMedicament);
 medicamentRouter.delete('/delete/:id', verifiedEmail, requireRole('pharmacien', 'admin'), deleteMedicament);
 

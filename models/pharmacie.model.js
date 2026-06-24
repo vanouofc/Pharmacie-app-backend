@@ -21,6 +21,9 @@ const pharmacieSchema = new mongoose.Schema({
         required: [true, "Veuiller renseigner la ville de la pharmacie."],
         trim: true
     },
+    photo: {
+        type: String,
+    },
     quartier: {
         type: String,
         required: [true, "Veuiller renseigner le quartier de la pharmacie."],

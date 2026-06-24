@@ -83,7 +83,7 @@ export const updateUser = async (req, res, next) => {
         }
 
 
-        const champAutorises = ['nom', 'phone', 'photo'];
+        const champAutorises = ['nom', 'phone', 'photo', 'ville'];
         const updateData = {};
 
         // ─── Remplir updateData avec les champs autorisés ────  ← manquait

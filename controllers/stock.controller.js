@@ -24,7 +24,7 @@ export const createStock = async (req, res, next) => {
         };
 
         // Verifier si c'est le proprietaire ou l'admin.
-        if (existPharmacie.proprietaire.toString() !== req.user.id && req.user.id !== 'Admin') {
+        if (existPharmacie.proprietaire.toString() !== req.user.id && req.user.id !== 'admin') {
             const error = new Error("Vous n'êtes pas autorisé à gérer le stock de cette pharmacie.");
             error.statusCode = 404;
             throw error;
@@ -64,6 +64,33 @@ export const createStock = async (req, res, next) => {
     }
 };
 
+export const getStocks = async (req, res, next) => {
+    try {
+            const stocks = await Stock.find().populate('pharmacie', 'nom').populate({
+                path: 'medicament', 
+                select: 'nom categorie description dosage photo alternatives prescriptionRequired',
+                populate: {
+                    path: 'alternatives', 
+                    select: 'nom photo',
+                },
+            });
+    
+            if (!stocks) {
+                res.status(404).json({ success: false, message: "Aucun stock trouvé" });
+            };
+    
+            res.status(200).json({
+                success: true,
+                message: "Stock(s) trouvée(s).",
+                total: stocks.length,
+                data: stocks,
+            });
+    
+        } catch (error) {
+            next(error);
+        }
+}
+
 export const updateStock = async (req, res, next) => {
     try {
         const stock = await Stock.findById(req.params.id).populate('pharmacie', 'proprietaire');
@@ -75,7 +102,7 @@ export const updateStock = async (req, res, next) => {
         };
 
         // Verifie si c'est le proprietaire ou l'admin.
-        if (stock.pharmacie.proprietaire.toString() !== req.user.id && req.user.role !== 'Admin') {
+        if (stock.pharmacie.proprietaire.toString() !== req.user.id && req.user.role !== 'admin') {
             const error = new Error("Vous n'êtes pas autorisé à modifier ce stock.");
             error.statusCode = 403;
             throw error;
@@ -143,6 +170,27 @@ export const getStockPharmacie = async (req, res, next) => {
     }
 };
 
+export const getStocksPharmacie = async (req, res, next) => {
+    try {
+        const id = req.params.id;
+        const medicaments = await Stock.find({pharmacie: id}).populate('medicament', 'nom categorie dosage photo');
+
+        if(medicaments.length === 0) {
+            const error = new Error('Medicament introuvable.');
+            error.statusCode = 404;
+            throw error;
+        };
+
+        res.status(200).json({
+            success: true,
+            messages: 'Medicaments retournés.',
+            data: medicaments,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const getPharmaciesMedicament = async (req, res, next) => {
     try {
         if(!req.user) {
@@ -194,7 +242,7 @@ export const deleteStock = async (req, res, next) => {
             throw error;
         };
 
-        if (stock.pharmacie.proprietaire.toString() !== req.user.id && req.user.role !== 'Admin') {
+        if (stock.pharmacie.proprietaire.toString() !== req.user.id && req.user.role !== 'admin') {
             const error = new Error("Vous n'êtes pas autorisé à supprimer ce stock.");
             error.statusCode = 403;
             throw error;

@@ -37,6 +37,9 @@ const utilisateurSchema = new mongoose.Schema({
     photo: {
         type: String,
     },
+    ville: {
+        type: String,
+    },
     isActive: {
         type: Boolean,
         default: true

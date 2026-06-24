@@ -13,7 +13,7 @@ const db = client.db();
 export const auth = betterAuth({
     database: mongodbAdapter(db),
 
-    trustedOrigins: ["*"], // <----- URL frontend
+    trustedOrigins: ["http://127.0.0.1:5500"], // <----- URL frontend
     baseURL: process.env.BETTER_AUTH_URL,
 
     // Gestion des sessions
@@ -129,7 +129,7 @@ export const auth = betterAuth({
     // ─── Modèle utilisateur ───────────────────────────────────  ← sorti de emailAndPassword
     user: {
         modelName: "utilisateurs",
-        deleteUser: {enabled: true},
+        deleteUser: { enabled: true },
         fields: {
             name: "nom",
         },
@@ -146,6 +146,9 @@ export const auth = betterAuth({
             },
             photo: {
                 type: "string", // ← corrigé : "string" au lieu de String
+            },
+            ville: {
+                type: String,
             },
             isActive: {
                 type: "boolean",

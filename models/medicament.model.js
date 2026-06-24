@@ -40,6 +40,9 @@ const medicamentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Medicament',
     }],
+    photo: {
+        type: String,
+    },
     isActive: {
         type: Boolean,
         default: true

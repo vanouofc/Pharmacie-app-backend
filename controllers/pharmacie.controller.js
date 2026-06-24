@@ -159,7 +159,7 @@ export const updatePharmacie = async (req, res, next) => {
 export const verifiedPharmacie = async (req, res, next) => {
     try {
 
-        const requiredRole = ['admin', 'Admin'];
+        const requiredRole = ['admin'];
 
         const pharmacie = await Pharmacie.findById(req.params.id);
 
@@ -185,6 +185,43 @@ export const verifiedPharmacie = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "Le statut de la pharmacie a bien été modifier.",
+            data: verified,
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const gardPharmacie = async (req, res, next) => {
+    try {
+
+        const requiredRole = ['admin'];
+
+        const pharmacie = await Pharmacie.findById(req.params.id);
+
+        if (!pharmacie) {
+            const error = new Error('Pharmacie introuvable');
+            error.statusCode = 404;
+            throw error;
+        };
+
+        // Vérifie que c'est un Admin
+        if (!requiredRole) {
+            const error = new Error("Vous n'êtes pas autorisé à modifier cette pharmacie.");
+            error.statusCode = 403;
+            throw error;
+        };
+
+        const verified = await Pharmacie.updateOne(
+            { _id: req.params.id, },
+            { $set: { deGarde: !pharmacie.deGarde } },
+            { new: true, runValidators: true },
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "La garde de la pharmacie a bien été modifier.",
             data: verified,
         });
 

@@ -104,7 +104,7 @@ export const updateMedicament = async (req, res, next) => {
             throw error;
         };
 
-        const allowedRoles = ['pharmacien', 'Pharmacien', 'admin', 'Admin'];
+        const allowedRoles = ['pharmacien', 'admin'];
 
         if (!allowedRoles) {
             const error = new Error("Vous n'avez pas le droit de modifier ce medicament.");

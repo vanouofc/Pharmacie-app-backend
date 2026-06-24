@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createStock, deleteStock, getPharmaciesMedicament, getStockPharmacie, restoreStock, updateStock } from "../controllers/stock.controller.js";
+import { createStock, deleteStock, getPharmaciesMedicament, getStockPharmacie, getStocks, getStocksPharmacie, restoreStock, updateStock } from "../controllers/stock.controller.js";
 import { requireSession } from "../middlewares/requireSession.middleware.js";
 import { verifiedEmail } from "../middlewares/verifiedEmail.middleware.js";
 import { requireRole } from "../middlewares/requireRole.middleware.js";
@@ -7,7 +7,10 @@ import { requireRole } from "../middlewares/requireRole.middleware.js";
 
 const stockRouter = Router();
 
+
 // Route utilisateurs connectés.
+stockRouter.get('/', requireSession, getStocks);
+stockRouter.get('/:id', requireSession, getStocksPharmacie);
 stockRouter.get('/pharmacie/:id', requireSession, getStockPharmacie);
 stockRouter.get('/medicament/:id', requireSession, getPharmaciesMedicament);
 
